@@ -7,6 +7,9 @@ on:
     branches: [master, main]
   workflow_dispatch: # allow manual trigger from GitHub UI
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # opt into Node.js 24 for all actions
+
 jobs:
   selenium-e2e:
     name: Run Selenium Login Tests
@@ -17,33 +20,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Setup Node.js ───────────────────────────────────────────────────
-      - name: Setup Node.js 20
+      # ── 2. Setup Node.js 24 ────────────────────────────────────────────────
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: web-dashboard/selenium-tests/package-lock.json
+          node-version: '24'
 
-      # ── 3. Install Chrome ──────────────────────────────────────────────────
+      # ── 3. Cache npm dependencies ──────────────────────────────────────────
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: web-dashboard/selenium-tests/node_modules
+          key: ${{ runner.os }}-selenium-${{ hashFiles('web-dashboard/selenium-tests/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-selenium-
+
+      # ── 4. Install Chrome (latest stable) ─────────────────────────────────
       - name: Install Google Chrome
         run: |
-          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
           google-chrome --version
 
-      # ── 4. Install ChromeDriver ────────────────────────────────────────────
+      # ── 5. Install ChromeDriver matching Chrome version ────────────────────
       - name: Install ChromeDriver
         uses: nanasess/setup-chromedriver@v2
 
-      # ── 5. Install Selenium test dependencies ─────────────────────────────
+      # ── 6. Install Selenium test dependencies ─────────────────────────────
       - name: Install Selenium test dependencies
         working-directory: web-dashboard/selenium-tests
         run: npm ci
 
-      # ── 6. Run Selenium Login Tests (headless, against Vercel) ────────────
+      # ── 7. Run Selenium Login Tests (headless, against Vercel) ────────────
       - name: Run Selenium E2E Login Tests
         working-directory: web-dashboard/selenium-tests
         env:
@@ -59,8 +67,8 @@ jobs:
           TEST_USER_REJECTED_PASS: ${{ secrets.TEST_USER_REJECTED_PASS }}
         run: npm run test:headless
 
-      # ── 7. Upload test results on failure ─────────────────────────────────
-      - name: Upload test screenshots on failure
+      # ── 8. Upload logs on failure ──────────────────────────────────────────
+      - name: Upload test logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
