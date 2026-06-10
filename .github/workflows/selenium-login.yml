@@ -73,7 +73,7 @@ jobs:
           TEST_USER_SUSPENDED_PASS: ${{ secrets.TEST_USER_SUSPENDED_PASS }}
           TEST_USER_REJECTED_EMAIL: ${{ secrets.TEST_USER_REJECTED_EMAIL }}
           TEST_USER_REJECTED_PASS: ${{ secrets.TEST_USER_REJECTED_PASS }}
-        run: npm run test:login:headless
+        run: npm run test:all:headless
 
       # ── 6. Upload logs on failure ──────────────────────────────────────────
       - name: Upload test logs on failure

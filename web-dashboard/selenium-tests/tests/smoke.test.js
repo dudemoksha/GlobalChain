@@ -149,6 +149,11 @@ if (require.main === module) {
     let driver;
 
     before(async function () {
+      if (!process.env.TEST_USER_APPROVED_EMAIL) {
+        console.log('  ⚠ Smoke tests skipped — TEST_USER_APPROVED_EMAIL secret not set');
+        this.skip();
+      }
+
       driver = await getDriver();
       
       // Step 1: Login so we have an active session for protected routes
