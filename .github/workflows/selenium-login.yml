@@ -7,7 +7,7 @@ on:
     branches: [master, main]
   workflow_dispatch:
 
-# Apply to ALL steps including actions/checkout — eliminates Node.js 20 warning
+# Apply to ALL steps including actions/checkout
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -26,29 +26,45 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
-      # ── 3. Install Chrome + ChromeDriver (matched versions, no mismatch) ───
-      - name: Setup Chrome & ChromeDriver
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: stable
+      # ── 3. Build & Start Next.js App Locally ──────────────────────────────
+      - name: Install web-dashboard dependencies
+        working-directory: web-dashboard
+        run: npm ci
 
-      - name: Verify Chrome & ChromeDriver versions
-        run: |
-          echo "Chrome:      $(google-chrome --version)"
-          echo "ChromeDriver: $(chromedriver --version)"
+      - name: Build Next.js app
+        working-directory: web-dashboard
+        env:
+          # Required for Next.js build / runtime
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://zvraaxqalrgfstubdmjz.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2cmFheHFhbHJnZnN0dWJkbWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MTQ5MjMsImV4cCI6MjA5NDQ5MDkyM30.LkaEdOJmuaeORXXr3Mr-AXaKDsDll5BurFxP7HUdt6E' }}
+        run: npm run build
+
+      - name: Start Next.js app
+        working-directory: web-dashboard
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://zvraaxqalrgfstubdmjz.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2cmFheHFhbHJnZnN0dWJkbWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MTQ5MjMsImV4cCI6MjA5NDQ5MDkyM30.LkaEdOJmuaeORXXr3Mr-AXaKDsDll5BurFxP7HUdt6E' }}
+        # Start server in background
+        run: npm run start &
+
+      - name: Wait for Next.js to be ready
+        run: npx wait-on http://127.0.0.1:3000 --timeout 30000
 
       # ── 4. Install Selenium test dependencies ─────────────────────────────
       - name: Install Selenium test dependencies
         working-directory: web-dashboard/selenium-tests
-        run: npm install --no-fund --no-audit
+        run: npm ci
 
       # ── 5. Run Login E2E Tests (headless) ─────────────────────────────────
       - name: Run Selenium E2E Login Tests
         working-directory: web-dashboard/selenium-tests
         env:
           TEST_HEADLESS: 'true'
-          TEST_BASE_URL: 'https://web-dashboard-8rrykr4ea-moksha-sais-projects-5c4d762b.vercel.app'
+          # Test against localhost instead of Vercel!
+          TEST_BASE_URL: 'http://127.0.0.1:3000'
           TEST_USER_APPROVED_EMAIL: ${{ secrets.TEST_USER_APPROVED_EMAIL }}
           TEST_USER_APPROVED_PASS: ${{ secrets.TEST_USER_APPROVED_PASS }}
           TEST_USER_PENDING_EMAIL: ${{ secrets.TEST_USER_PENDING_EMAIL }}
