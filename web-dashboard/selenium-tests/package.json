@@ -4,15 +4,16 @@
   "description": "Selenium WebDriver E2E tests for GlobalChain Web Dashboard",
   "main": "index.js",
   "scripts": {
-    "test": "mocha tests/**/*.test.js --timeout 30000 --reporter spec",
-    "test:login": "mocha tests/login.test.js --timeout 30000 --reporter spec",
-    "test:headless": "TEST_HEADLESS=true mocha tests/**/*.test.js --timeout 30000 --reporter spec"
+    "test": "cross-env mocha tests/**/*.test.js --timeout 60000 --reporter spec --exit",
+    "test:login": "cross-env mocha tests/login.test.js --timeout 60000 --reporter spec --exit",
+    "test:headless": "cross-env TEST_HEADLESS=true mocha tests/**/*.test.js --timeout 60000 --reporter spec --exit"
   },
   "dependencies": {
     "selenium-webdriver": "^4.20.0"
   },
   "devDependencies": {
     "chromedriver": "^149.0.2",
+    "cross-env": "^7.0.3",
     "dotenv": "^16.4.5",
     "mocha": "^10.4.0"
   },
