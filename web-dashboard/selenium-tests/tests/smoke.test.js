@@ -184,12 +184,12 @@ if (require.main === module) {
         // Wait a small moment to allow client-side hydration
         await driver.sleep(1000);
         
-        // Check 1: Did we hit a Next.js 404 page?
-        const pageSource = await driver.getPageSource();
-        const is404 = pageSource.includes('This page could not be found');
-        assert.ok(!is404, `Route ${route} returned a 404 Not Found error.`);
+        const title = await driver.getTitle();
+        const is404 = title.includes('404: This page could not be found') || title.includes('404');
+        assert.ok(!is404, `Route ${route} returned a 404 Not Found error (Title: ${title}).`);
         
         // Check 2: Did we hit a React runtime crash / Error boundary?
+        const pageSource = await driver.getPageSource();
         // Usually Next.js overlays have an id like `nextjs-portal` or show "Application error"
         const isAppError = pageSource.includes('Application error: a client-side exception has occurred');
         assert.ok(!isAppError, `Route ${route} triggered a React application error (crash).`);
