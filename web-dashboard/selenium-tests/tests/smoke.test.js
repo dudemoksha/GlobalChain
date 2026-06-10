@@ -115,6 +115,7 @@ if (require.main === module) {
 } else {
 
   async function getDriver() {
+    const fs = require('fs');
     const options = new chrome.Options();
     if (process.env.TEST_HEADLESS === 'true') {
       options.addArguments('--headless=new');
@@ -123,17 +124,23 @@ if (require.main === module) {
       '--no-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
+      '--disable-extensions',
+      '--remote-allow-origins=*',
       '--window-size=1366,768'
     );
-    const service = new chrome.ServiceBuilder(
-      path.resolve(__dirname, '../chromedriver.exe')
-    );
 
-    return new Builder()
+    // On Windows use local chromedriver.exe; on Linux/CI use system chromedriver
+    const localDriver = path.resolve(__dirname, '../chromedriver.exe');
+    const isWindows = process.platform === 'win32';
+    const builder = new Builder()
       .forBrowser('chrome')
-      .setChromeOptions(options)
-      .setChromeService(service)
-      .build();
+      .setChromeOptions(options);
+
+    if (isWindows && fs.existsSync(localDriver)) {
+      builder.setChromeService(new chrome.ServiceBuilder(localDriver));
+    }
+
+    return builder.build();
   }
 
   describe('GlobalChain — Full Application Smoke Test', function () {
