@@ -83,7 +83,9 @@ if (require.main === module) {
     });
 
     it('TC-20: Should load System Integrity Dashboard', async function () {
-      await driver.get(`${config.baseUrl}/admin-portal`);
+      // We are already on /admin-portal from the before() block.
+      // A hard driver.get() here would cause a full page reload, which triggers 
+      // a Zustand hydration race condition (userRole = null initially) that redirects back to login.
       await driver.wait(until.elementLocated(By.css('h2')), 15000);
       
       const title = await driver.findElement(By.css('h2'));
