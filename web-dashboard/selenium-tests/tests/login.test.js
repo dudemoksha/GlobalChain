@@ -273,6 +273,11 @@ if (require.main === module) {
 
     // ── TC-08: Successful Login ────────────────────────────────────────────────
     it('TC-08: Should redirect to /dashboard/executive on successful login', async function () {
+      // Skip if real approved credentials are not configured as GitHub Secrets
+      if (!process.env.TEST_USER_APPROVED_EMAIL) {
+        console.log('  ⚠ TC-08 skipped — TEST_USER_APPROVED_EMAIL secret not set');
+        this.skip();
+      }
       await navigateToLogin(driver);
       await fillLoginForm(driver, config.testUsers.approved.email, config.testUsers.approved.password);
       await clickLoginButton(driver);
@@ -287,6 +292,11 @@ if (require.main === module) {
 
     // ── TC-09: Loading Spinner ─────────────────────────────────────────────────
     it('TC-09: Should show loading state while authenticating', async function () {
+      // Skip if real approved credentials are not configured as GitHub Secrets
+      if (!process.env.TEST_USER_APPROVED_EMAIL) {
+        console.log('  ⚠ TC-09 skipped — TEST_USER_APPROVED_EMAIL secret not set');
+        this.skip();
+      }
       await navigateToLogin(driver);
       await fillLoginForm(driver, config.testUsers.approved.email, config.testUsers.approved.password);
       await clickLoginButton(driver);
