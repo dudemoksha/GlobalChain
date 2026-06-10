@@ -1,0 +1,69 @@
+name: Selenium E2E Tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  selenium-e2e:
+    name: Run Selenium Login Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout code ───────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Setup Node.js ───────────────────────────────────────────────────
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web-dashboard/selenium-tests/package-lock.json
+
+      # ── 3. Install Chrome ──────────────────────────────────────────────────
+      - name: Install Google Chrome
+        run: |
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          google-chrome --version
+
+      # ── 4. Install ChromeDriver ────────────────────────────────────────────
+      - name: Install ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+
+      # ── 5. Install Selenium test dependencies ─────────────────────────────
+      - name: Install Selenium test dependencies
+        working-directory: web-dashboard/selenium-tests
+        run: npm ci
+
+      # ── 6. Run Selenium Login Tests (headless, against Vercel) ────────────
+      - name: Run Selenium E2E Login Tests
+        working-directory: web-dashboard/selenium-tests
+        env:
+          TEST_HEADLESS: 'true'
+          TEST_BASE_URL: ${{ secrets.VERCEL_APP_URL || 'https://web-dashboard-8rrykr4ea-moksha-sais-projects-5c4d762b.vercel.app' }}
+          TEST_USER_APPROVED_EMAIL: ${{ secrets.TEST_USER_APPROVED_EMAIL }}
+          TEST_USER_APPROVED_PASS: ${{ secrets.TEST_USER_APPROVED_PASS }}
+          TEST_USER_PENDING_EMAIL: ${{ secrets.TEST_USER_PENDING_EMAIL }}
+          TEST_USER_PENDING_PASS: ${{ secrets.TEST_USER_PENDING_PASS }}
+          TEST_USER_SUSPENDED_EMAIL: ${{ secrets.TEST_USER_SUSPENDED_EMAIL }}
+          TEST_USER_SUSPENDED_PASS: ${{ secrets.TEST_USER_SUSPENDED_PASS }}
+          TEST_USER_REJECTED_EMAIL: ${{ secrets.TEST_USER_REJECTED_EMAIL }}
+          TEST_USER_REJECTED_PASS: ${{ secrets.TEST_USER_REJECTED_PASS }}
+        run: npm run test:headless
+
+      # ── 7. Upload test results on failure ─────────────────────────────────
+      - name: Upload test screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-failure-logs
+          path: web-dashboard/selenium-tests/logs/
+          if-no-files-found: ignore

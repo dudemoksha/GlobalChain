@@ -59,17 +59,24 @@ if (require.main === module) {
       '--window-size=1366,768'
     );
 
-    // Use manually downloaded chromedriver.exe from current directory
     const path = require('path');
-    const service = new chrome.ServiceBuilder(
-      path.resolve(__dirname, '../chromedriver.exe')
-    );
+    const fs = require('fs');
 
-    return new Builder()
+    // On Windows use the local chromedriver.exe; on Linux/CI use system chromedriver
+    const localDriver = path.resolve(__dirname, '../chromedriver.exe');
+    const isWindows = process.platform === 'win32';
+
+    const builder = new Builder()
       .forBrowser('chrome')
-      .setChromeOptions(options)
-      .setChromeService(service)
-      .build();
+      .setChromeOptions(options);
+
+    if (isWindows && fs.existsSync(localDriver)) {
+      const service = new chrome.ServiceBuilder(localDriver);
+      builder.setChromeService(service);
+    }
+    // On Linux/CI, chromedriver is on PATH via nanasess/setup-chromedriver
+
+    return builder.build();
   }
 
   async function navigateToLogin(driver) {
