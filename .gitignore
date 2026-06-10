@@ -7,6 +7,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 package-lock.json
+# Allow selenium-tests lock file — required for npm ci in GitHub Actions
+!web-dashboard/selenium-tests/package-lock.json
 
 # ========================
 # Next.js
