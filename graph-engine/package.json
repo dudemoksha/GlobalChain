@@ -1,0 +1,19 @@
+{
+  "name": "@globalchain/graph-engine",
+  "version": "1.0.0",
+  "description": "Core graph intelligence layer for GlobalChain",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0"
+  }
+}
