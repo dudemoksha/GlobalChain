@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "cross-env mocha tests/**/*.test.js --timeout 60000 --reporter spec --exit",
+    "login": "cross-env mocha tests/login.test.js --timeout 60000 --reporter spec --exit",
     "test:login": "cross-env mocha tests/login.test.js --timeout 60000 --reporter spec --exit",
     "test:login:headless": "cross-env TEST_HEADLESS=true mocha tests/login.test.js --timeout 60000 --reporter spec --exit",
     "test:smoke:headless": "cross-env TEST_HEADLESS=true mocha tests/smoke.test.js --timeout 600000 --reporter spec --exit",
