@@ -59,21 +59,23 @@ if (require.main === module) {
 
       driver = await getDriver();
       
-      // Login first
-      await driver.get(`${config.baseUrl}/auth/login`);
+      // Login via Secure Admin Gateway
+      await driver.get(`${config.baseUrl}/admin/login`);
       await driver.wait(until.elementLocated(By.css('form')), 15000);
       await driver.wait(until.elementLocated(By.css('input[type="email"]')), 15000);
       
       const emailInput = await driver.findElement(By.css('input[type="email"]'));
       const passwordInput = await driver.findElement(By.css('input[type="password"]'));
+      
+      // Admin login requires an approved org email but the root password "admin123"
       await emailInput.sendKeys(config.testUsers.approved.email);
-      await passwordInput.sendKeys(config.testUsers.approved.password);
+      await passwordInput.sendKeys('admin123');
       
       const submitBtn = await driver.findElement(By.css('button[type="submit"]'));
       await submitBtn.click();
       
-      // Wait for redirect to dashboard
-      await driver.wait(until.urlContains('/dashboard/executive'), 15000);
+      // Wait for redirect to admin portal
+      await driver.wait(until.urlContains('/admin-portal'), 15000);
     });
 
     after(async function () {

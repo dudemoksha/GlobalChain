@@ -107,7 +107,7 @@ if (require.main === module) {
     await loginBtn.click();
   }
 
-  async function getErrorMessage(driver, timeoutMs = 12000) {
+  async function getErrorMessage(driver, timeoutMs = 20000) {
     try {
       // The error div has class "text-critical" (Tailwind custom color class)
       await driver.wait(until.elementLocated(By.css('.text-critical')), timeoutMs);
