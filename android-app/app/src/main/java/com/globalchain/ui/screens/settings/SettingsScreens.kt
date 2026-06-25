@@ -34,6 +34,7 @@ fun SettingsScreen(navController: NavController) {
         SettingsGroup("ACCOUNT") {
             SettingsRow("General Settings", Icons.Default.Settings, Color(0xFF3B82F6)) { navController.navigate(Screen.SettingsGeneral.route) }
             SettingsRow("Data Retention", Icons.Default.Storage, Color(0xFF10B981)) { navController.navigate(Screen.SettingsRetention.route) }
+            SettingsRow("Help & Support", Icons.Default.Help, Color(0xFFF59E0B)) { navController.navigate(Screen.SettingsHelp.route) }
         }
 
         SettingsGroup("ADMIN") {
@@ -177,5 +178,25 @@ fun RetentionSlider(label: String, value: Float, onChange: (Float) -> Unit, colo
         }
         Slider(value = value, onValueChange = onChange, valueRange = 30f..365f,
             colors = SliderDefaults.colors(thumbColor = color, activeTrackColor = color))
+    }
+}
+
+@Composable
+fun HelpSupportScreen() {
+    val scroll = rememberScrollState()
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF020617)).padding(16.dp).verticalScroll(scroll),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("HELP & SUPPORT", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text("Documentation and customer support", color = Color(0xFF64748B), fontSize = 11.sp)
+
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsRow("Documentation", Icons.Default.Article, Color(0xFF3B82F6)) { }
+                Divider(color = Color.White.copy(0.05f))
+                SettingsRow("Contact Support", Icons.Default.Email, Color(0xFF10B981)) { }
+                Divider(color = Color.White.copy(0.05f))
+                SettingsRow("System Status", Icons.Default.CheckCircle, Color(0xFFF59E0B)) { }
+            }
+        }
     }
 }

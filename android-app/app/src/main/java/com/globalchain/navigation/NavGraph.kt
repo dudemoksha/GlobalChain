@@ -12,12 +12,12 @@ import com.globalchain.ui.screens.admin.*
 import com.globalchain.ui.screens.analytics.*
 import com.globalchain.ui.screens.auth.*
 import com.globalchain.ui.screens.dashboard.*
-import com.globalchain.ui.screens.geo.GeoMapScreen
 import com.globalchain.ui.screens.intelligence.*
 import com.globalchain.ui.screens.settings.*
 import com.globalchain.ui.screens.simulations.*
 import com.globalchain.ui.screens.suppliers.*
 import com.globalchain.ui.screens.upload.*
+import com.globalchain.ui.screens.visualization.*
 
 sealed class Screen(val route: String) {
     // Auth
@@ -50,9 +50,11 @@ sealed class Screen(val route: String) {
     object SupplierTier2 : Screen("supplier_tier2")
     object SupplierTier3 : Screen("supplier_tier3")
     object DependencyMapping : Screen("dependency_mapping")
+    object SupplierComparison : Screen("supplier_comparison")
+    object SupplierHistory : Screen("supplier_history")
+    object SupplierManage : Screen("supplier_manage")
 
-    // Geo Map
-    object GeoMap : Screen("geo_map")
+    // Maps (Removed per Req 32)
 
     // Simulations
     object Simulations : Screen("simulations")
@@ -64,6 +66,8 @@ sealed class Screen(val route: String) {
     object SimWar : Screen("sim_war")
     object SimPort : Screen("sim_port")
     object SimTraffic : Screen("sim_traffic")
+    object SimGeopolitical : Screen("sim_geopolitical")
+    object SimLogistics : Screen("sim_logistics")
     object SimHistory : Screen("sim_history")
 
     // Analytics
@@ -81,6 +85,8 @@ sealed class Screen(val route: String) {
     object AnalyticsResilience : Screen("analytics_resilience")
     object AnalyticsMatrix : Screen("analytics_matrix")
     object AnalyticsRecovery : Screen("analytics_recovery")
+    object AnalyticsHealth : Screen("analytics_health")
+    object AnalyticsRecommendations : Screen("analytics_recommendations")
 
     // Intelligence
     object Alerts : Screen("alerts")
@@ -91,6 +97,7 @@ sealed class Screen(val route: String) {
     object IntelModels : Screen("intel_models")
     object Timeline : Screen("timeline")
     object Reports : Screen("reports")
+    object ShippingIntel : Screen("shipping_intel")
 
     // Upload / Data
     object DataUpload : Screen("data_upload")
@@ -112,10 +119,20 @@ sealed class Screen(val route: String) {
     object AdminDisasterFeed : Screen("admin_disaster_feed")
     object AdminSystem : Screen("admin_system")
 
+    // Visualizations
+    object VisualDensity : Screen("visual_density")
+    object VisualDisasters : Screen("visual_disasters")
+    object VisualGlobe : Screen("visual_globe")
+    object VisualHeatmaps : Screen("visual_heatmaps")
+    object VisualHistory : Screen("visual_history")
+    object VisualShipping : Screen("visual_shipping")
+    object VisualTraffic : Screen("visual_traffic")
+
     // Settings
     object Settings : Screen("settings")
     object SettingsGeneral : Screen("settings_general")
     object SettingsRetention : Screen("settings_retention")
+    object SettingsHelp : Screen("settings_help")
     object RiskMatrix : Screen("risk_matrix")
 }
 
@@ -190,9 +207,11 @@ fun NavGraph(navController: NavHostController, startDestination: String = Screen
         composable(Screen.SupplierTier2.route) { TierSuppliersScreen(tier = 2) }
         composable(Screen.SupplierTier3.route) { TierSuppliersScreen(tier = 3) }
         composable(Screen.DependencyMapping.route) { DependencyMappingScreen() }
+        composable(Screen.SupplierComparison.route) { SupplierComparisonScreen() }
+        composable(Screen.SupplierHistory.route) { SupplierHistoryScreen() }
+        composable(Screen.SupplierManage.route) { SupplierManageScreen() }
 
-        // ── Geo Map ───────────────────────────────────────────────────────────
-        composable(Screen.GeoMap.route) { GeoMapScreen(navController) }
+        // Maps (Removed per Req 32)
 
         // ── Simulations ───────────────────────────────────────────────────────
         composable(Screen.SimCenter.route) { SimulationCenterScreen() }
@@ -204,6 +223,8 @@ fun NavGraph(navController: NavHostController, startDestination: String = Screen
         composable(Screen.SimWar.route) { SimulationConfigScreen("War") }
         composable(Screen.SimPort.route) { SimulationConfigScreen("Port") }
         composable(Screen.SimTraffic.route) { SimulationConfigScreen("Traffic") }
+        composable(Screen.SimGeopolitical.route) { SimulationConfigScreen("Geopolitical") }
+        composable(Screen.SimLogistics.route) { SimulationConfigScreen("Logistics") }
         composable(Screen.SimHistory.route) { SimulationHistoryScreen() }
 
         // ── Analytics ─────────────────────────────────────────────────────────
@@ -221,6 +242,8 @@ fun NavGraph(navController: NavHostController, startDestination: String = Screen
         composable(Screen.AnalyticsResilience.route) { ResilienceAnalyticsScreen() }
         composable(Screen.AnalyticsMatrix.route) { RiskMatrixScreen() }
         composable(Screen.AnalyticsRecovery.route) { RecoveryAnalyticsScreen() }
+        composable(Screen.AnalyticsHealth.route) { HealthAnalyticsScreen() }
+        composable(Screen.AnalyticsRecommendations.route) { RecommendationsAnalyticsScreen() }
 
         // ── Intelligence ──────────────────────────────────────────────────────
         composable(Screen.Alerts.route) { AlertsScreen() }
@@ -231,11 +254,12 @@ fun NavGraph(navController: NavHostController, startDestination: String = Screen
         composable(Screen.IntelModels.route) { IntelModelsScreen() }
         composable(Screen.Timeline.route) { TimelineScreen() }
         composable(Screen.Reports.route) { ReportsScreen() }
+        composable(Screen.ShippingIntel.route) { ShippingIntelligenceScreen() }
 
         // ── Data Upload ───────────────────────────────────────────────────────
         composable(Screen.DataUpload.route) { DataUploadHubScreen(navController) }
-        composable(Screen.CsvUpload.route) { CsvUploadScreen() }
-        composable(Screen.ExcelUpload.route) { ExcelUploadScreen() }
+        composable(Screen.CsvUpload.route) { CsvUploadScreen(navController) }
+        composable(Screen.ExcelUpload.route) { ExcelUploadScreen(navController) }
         composable(Screen.DataMapping.route) { DataMappingScreen() }
         composable(Screen.DataValidation.route) { DataValidationScreen() }
         composable(Screen.DataTemplates.route) { DataTemplatesScreen() }
@@ -252,9 +276,19 @@ fun NavGraph(navController: NavHostController, startDestination: String = Screen
         composable(Screen.AdminDisasterFeed.route) { AdminDisasterFeedScreen() }
         composable(Screen.AdminSystem.route) { AdminSystemScreen() }
 
+        // ── Visualizations ────────────────────────────────────────────────────
+        composable(Screen.VisualDensity.route) { VisualDensityScreen() }
+        composable(Screen.VisualDisasters.route) { VisualDisastersScreen() }
+        composable(Screen.VisualGlobe.route) { VisualGlobeScreen() }
+        composable(Screen.VisualHeatmaps.route) { VisualHeatmapsScreen() }
+        composable(Screen.VisualHistory.route) { VisualHistoryScreen() }
+        composable(Screen.VisualShipping.route) { VisualShippingScreen() }
+        composable(Screen.VisualTraffic.route) { VisualTrafficScreen() }
+
         // ── Settings ──────────────────────────────────────────────────────────
         composable(Screen.Settings.route) { SettingsScreen(navController) }
         composable(Screen.SettingsGeneral.route) { GeneralSettingsScreen() }
         composable(Screen.SettingsRetention.route) { RetentionSettingsScreen() }
+        composable(Screen.SettingsHelp.route) { HelpSupportScreen() }
     }
 }

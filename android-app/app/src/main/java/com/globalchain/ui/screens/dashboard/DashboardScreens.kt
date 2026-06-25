@@ -153,15 +153,20 @@ fun OperationalDashboardScreen(vm: SupplierViewModel = hiltViewModel()) {
             KpiCard("At Risk", suppliers.count { it.healthScore < 70 && it.healthScore >= 40 }.toString(), Color(0xFFF59E0B), Modifier.weight(1f))
         }
 
-        DashboardSection("QUALITY SCORES") {
-            listOf("Electronics", "Logistics", "Raw Materials", "Manufacturing").forEach { cat ->
-                val score = (60..95).random()
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(cat, color = Color.Gray, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                    LinearProgressIndicator(progress = score / 100f, modifier = Modifier.width(80.dp).height(4.dp),
-                        color = Color(0xFF10B981), trackColor = Color.White.copy(0.1f))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("$score%", color = Color.White, fontSize = 10.sp)
+        DashboardSection("QUALITY SCORES BY CATEGORY") {
+            if (suppliers.isEmpty()) EmptyDataPlaceholder("No data available")
+            else {
+                val categories = suppliers.groupBy { it.category ?: "Unknown" }
+                categories.entries.take(5).forEach { (cat, list) ->
+                    val score = list.map { it.qualityScore }.average()
+                    val safeScore = if (score.isNaN()) 0.0 else score
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(cat, color = Color.Gray, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                        LinearProgressIndicator(progress = (safeScore / 100f).toFloat(), modifier = Modifier.width(80.dp).height(4.dp),
+                            color = Color(0xFF10B981), trackColor = Color.White.copy(0.1f))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("${safeScore.toInt()}%", color = Color.White, fontSize = 10.sp)
+                    }
                 }
             }
         }
@@ -244,14 +249,9 @@ fun RiskDashboardScreen(vm: SupplierViewModel = hiltViewModel()) {
 @Composable
 fun RealtimeDashboardScreen(vm: SupplierViewModel = hiltViewModel()) {
     val scroll = rememberScrollState()
-    var tick by remember { mutableIntStateOf(0) }
+    val suppliers by vm.suppliers.collectAsState()
 
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(3000)
-            tick++
-        }
-    }
+    // No longer using tick for mock updates
 
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFF020617)).padding(16.dp).verticalScroll(scroll),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -263,28 +263,32 @@ fun RealtimeDashboardScreen(vm: SupplierViewModel = hiltViewModel()) {
         Text("Live supply chain telemetry — updates every 3s", color = Color(0xFF64748B), fontSize = 11.sp)
 
         DashboardSection("LIVE METRICS") {
-            val baseMetrics = listOf(
-                Triple("Network Uptime", 96 + (tick % 3), Color(0xFF10B981)),
-                Triple("Data Freshness", 88 + (tick % 5), Color(0xFF3B82F6)),
-                Triple("Alert Response Time", 72 + (tick % 8), Color(0xFFF59E0B)),
-                Triple("Resilience Index", 81 + (tick % 4), Color(0xFFA855F7))
-            )
-            baseMetrics.forEach { (label, value, color) ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(label, color = Color.Gray, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                    Text("$value%", color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            if (suppliers.isEmpty()) EmptyDataPlaceholder("Upload dataset to view telemetry.")
+            else {
+                val baseMetrics = listOf(
+                    Triple("Total Tracked Nodes", suppliers.size.toString(), Color(0xFF10B981)),
+                    Triple("Avg Health", suppliers.map { it.healthScore }.average().toInt().toString(), Color(0xFF3B82F6)),
+                    Triple("Critical Risk Nodes", suppliers.count { it.riskScore > 80 }.toString(), Color(0xFFF59E0B)),
+                    Triple("Backup Capacity", suppliers.count { it.isBackup }.toString(), Color(0xFFA855F7))
+                )
+                baseMetrics.forEach { (label, value, color) ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, color = Color.Gray, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                        Text(value, color = color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
 
-        DashboardSection("RECENT EVENTS") {
-            listOf("Tier 2 supplier pinged — Asia Pacific", "New simulation result cached",
-                "Alert threshold updated", "Dataset refresh triggered", "Backup supplier activated"
-            ).forEachIndexed { i, event ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-                    Box(modifier = Modifier.size(6.dp).background(Color(0xFF3B82F6), RoundedCornerShape(3.dp)).padding(top = 4.dp))
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(event, color = Color(0xFF94A3B8), fontSize = 10.sp)
+        DashboardSection("RECENTLY ADDED SUPPLIERS") {
+            if (suppliers.isEmpty()) EmptyDataPlaceholder("No recent events")
+            else {
+                suppliers.takeLast(5).reversed().forEach { s ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                        Box(modifier = Modifier.size(6.dp).background(Color(0xFF3B82F6), RoundedCornerShape(3.dp)).padding(top = 4.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Supplier registered: ${s.name} (${s.country ?: "Unknown"})", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                    }
                 }
             }
         }

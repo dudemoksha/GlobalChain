@@ -15,7 +15,7 @@ class SupplierRepository @Inject constructor(private val supabase: SupabaseClien
 
     suspend fun getSuppliers(): List<Supplier> {
         return try {
-            val userId = supabase.auth.currentUserOrNull()?.id ?: return emptyList()
+            // No auth check — public read access
             supabase.postgrest["suppliers"]
                 .select(Columns.ALL)
                 .decodeList<SupplierDto>()
@@ -24,17 +24,30 @@ class SupplierRepository @Inject constructor(private val supabase: SupabaseClien
     }
 
     suspend fun addSupplier(supplier: Supplier): Boolean = try {
-        supabase.postgrest["suppliers"].insert(supplier.toDto())
+        // Use InsertDto — omits id and timestamps so DB auto-generates them
+        supabase.postgrest["suppliers"].insert(supplier.toInsertDto())
         true
-    } catch (e: Exception) { false }
+    } catch (e: Exception) {
+        android.util.Log.e("SupplierRepo", "Insert failed: ${e.message}", e)
+        false
+    }
 
     suspend fun deleteSupplier(id: String): Boolean = try {
         supabase.postgrest["suppliers"].delete { filter { eq("id", id) } }
         true
     } catch (e: Exception) { false }
 
+    suspend fun deleteAllSuppliers(): Boolean = try {
+        // Delete all rows where id is not null (which matches everything)
+        supabase.postgrest["suppliers"].delete { filter { neq("id", "00000000-0000-0000-0000-000000000000") } }
+        true
+    } catch (e: Exception) { 
+        android.util.Log.e("SupplierRepo", "Delete all failed: ${e.message}", e)
+        false 
+    }
+
     suspend fun updateSupplier(supplier: Supplier): Boolean = try {
-        supabase.postgrest["suppliers"].update(supplier.toDto()) { filter { eq("id", supplier.id) } }
+        supabase.postgrest["suppliers"].update(supplier.toInsertDto()) { filter { eq("id", supplier.id) } }
         true
     } catch (e: Exception) { false }
 }
@@ -81,23 +94,61 @@ class AuditRepository @Inject constructor(private val supabase: SupabaseClient) 
     } catch (e: Exception) { emptyList() }
 }
 
-// DTOs - internal mapping layer
+// ── Full read DTO (includes auto-generated fields from DB) ─────────────────────
 @kotlinx.serialization.Serializable
 data class SupplierDto(
-    val id: String = "", val name: String = "", val tier_level: Int = 1,
-    val lat: Double = 0.0, val lng: Double = 0.0, val region: String? = null,
-    val country: String? = null, val city: String? = null,
-    val risk_score: Double = 0.0, val health_score: Double = 100.0,
-    val quality_score: Double = 100.0, val resilience_score: Double = 100.0,
-    val category: String? = null, val is_backup: Boolean = false,
-    val created_at: String = "", val updated_at: String = ""
+    val id: String = "",
+    val name: String = "",
+    val tier: Int = 1,
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+    val region: String? = null,
+    val country: String? = null,
+    val risk: Int = 20,        // INTEGER in schema
+    val health: Int = 80,      // INTEGER in schema
+    val category: String? = null,
+    val is_backup: Boolean = false,
+    val created_at: String = "",
+    val updated_at: String = ""
 ) {
-    fun toModel() = Supplier(id, null, name, tier_level, lat, lng, region, country, city,
-        risk_score, health_score, quality_score, resilience_score, "public", category, is_backup, created_at, updated_at)
+    fun toModel() = Supplier(
+        id = id, companyId = null, name = name, tierLevel = tier,
+        lat = lat, lng = lng, region = region, country = country, city = null,
+        riskScore = risk.toDouble(), healthScore = health.toDouble(),
+        qualityScore = health.toDouble(), resilienceScore = (100 - risk).toDouble(),
+        visibilityScope = "Public", category = category, isBackup = is_backup,
+        createdAt = created_at, updatedAt = updated_at
+    )
 }
 
-fun Supplier.toDto() = SupplierDto(id, name, tierLevel, lat, lng, region, country, city,
-    riskScore, healthScore, qualityScore, resilienceScore, category, isBackup, createdAt, updatedAt)
+// ── Insert DTO (omit id, created_at, updated_at — let DB auto-generate) ────────
+@kotlinx.serialization.Serializable
+data class SupplierInsertDto(
+    val name: String,
+    val tier: Int,
+    val lat: Double,
+    val lng: Double,
+    val region: String? = null,
+    val country: String? = null,
+    val risk: Int = 20,
+    val health: Int = 80,
+    val category: String? = null,
+    val is_backup: Boolean = false
+)
+
+fun Supplier.toInsertDto() = SupplierInsertDto(
+    name = name,
+    tier = tierLevel.coerceIn(1, 3),
+    lat = lat,
+    lng = lng,
+    region = region,
+    country = country,
+    risk = riskScore.toInt().coerceIn(0, 100),
+    health = healthScore.toInt().coerceIn(0, 100),
+    category = category,
+    is_backup = isBackup
+)
+
 
 @kotlinx.serialization.Serializable
 data class AlertDto(

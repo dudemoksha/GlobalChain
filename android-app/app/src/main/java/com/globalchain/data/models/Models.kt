@@ -17,6 +17,7 @@ data class Supplier(
     val visibilityScope: String = "public",
     val category: String? = null,
     val isBackup: Boolean = false,
+    val dependsOn: String? = null,
     val createdAt: String = "",
     val updatedAt: String = ""
 )
@@ -48,7 +49,8 @@ data class SimulationResult(
     val resilienceScore: Int = 0,
     val logisticsDelay: String = "",
     val affectedSuppliers: List<AffectedSupplier> = emptyList(),
-    val recommendations: List<SimulationRecommendation> = emptyList()
+    val recommendations: List<SimulationRecommendation> = emptyList(),
+    val simulatedSuppliers: List<Supplier> = emptyList()
 )
 
 data class AffectedSupplier(

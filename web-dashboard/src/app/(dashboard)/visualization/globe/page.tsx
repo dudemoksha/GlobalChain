@@ -2,6 +2,7 @@
 
 import { useStore, Supplier } from '@/store/useStore';
 import Globe3D from '@/components/Globe3D';
+import RegionRiskAnalysis from '@/components/RegionRiskAnalysis';
 import { motion, AnimatePresence } from 'framer-motion';
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
@@ -21,6 +22,7 @@ export default function GlobeVisualizerPage() {
   const [showLayers, setShowLayers] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
+  const [showRiskPanel, setShowRiskPanel] = useState(false);
   const [is2D, setIs2D] = useState(false);
   const [showSimOverlay, setShowSimOverlay] = useState(true);
   
@@ -215,6 +217,15 @@ export default function GlobeVisualizerPage() {
                 <span className="absolute right-full mr-4 px-3 py-1.5 bg-black/90 border border-white/10 rounded-xl text-[9px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100 whitespace-nowrap pointer-events-none shadow-2xl">Simulation_Overlay</span>
              </button>
 
+             {/* Region Risk Analysis */}
+             <button 
+               onClick={() => setShowRiskPanel(!showRiskPanel)}
+               className={`w-14 h-14 border rounded-2xl flex items-center justify-center transition-all group relative ${showRiskPanel ? 'bg-warning border-warning text-white shadow-[0_0_20px_rgba(245,158,11,0.4)]' : 'bg-[#0a0c10]/80 border-white/10 text-slate-500 hover:text-white hover:bg-white/10'}`}
+              >
+                 <ShieldAlert className="w-6 h-6" />
+                 <span className="absolute right-full mr-4 px-3 py-1.5 bg-black/90 border border-white/10 rounded-xl text-[9px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100 whitespace-nowrap pointer-events-none shadow-2xl">Region_Risk</span>
+              </button>
+
              {/* Focus System */}
              <button 
                onClick={autoFocusCritical}
@@ -275,6 +286,26 @@ export default function GlobeVisualizerPage() {
                  </div>
               </motion.div>
            )}
+        </AnimatePresence>
+
+        {/* ── Region Risk Panel ── */}
+        <AnimatePresence>
+          {showRiskPanel && (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+              className="absolute top-8 right-28 z-40 w-96 bg-[#050709]/95 border border-warning/20 rounded-[2.5rem] overflow-hidden shadow-2xl backdrop-blur-2xl pointer-events-auto"
+            >
+              <div className="flex items-center justify-between px-8 py-6 border-b border-white/5">
+                <span className="text-[10px] text-warning font-bold uppercase tracking-[0.2em] flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4" /> Region Risk Analysis
+                </span>
+                <button onClick={() => setShowRiskPanel(false)}><X className="w-4 h-4 text-slate-500" /></button>
+              </div>
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                <RegionRiskAnalysis compact />
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         {/* Node Search Modal */}

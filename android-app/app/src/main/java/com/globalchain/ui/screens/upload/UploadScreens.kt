@@ -33,7 +33,8 @@ import com.globalchain.ui.viewmodel.SupplierViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.apache.poi.ss.usermodel.WorkbookFactory
+import org.apache.poi.ss.usermodel.DataFormatter
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.UUID
@@ -84,7 +85,8 @@ fun parseCsvToSuppliers(context: Context, uri: Uri): Pair<List<Supplier>, List<S
             val name = get("name").ifBlank { errors.add("Line $lineNum: Missing name"); return@forEach }
             val lat = get("lat").toDoubleOrNull() ?: run { errors.add("Line $lineNum: Invalid lat '${get("lat")}'"); return@forEach }
             val lng = get("lng").toDoubleOrNull() ?: run { errors.add("Line $lineNum: Invalid lng '${get("lng")}'"); return@forEach }
-            val tier = get("tier_level").toIntOrNull() ?: 1
+            // Handle "1.0" format that Excel sometimes exports
+            val tier = get("tier_level").toIntOrNull() ?: get("tier_level").toDoubleOrNull()?.toInt() ?: 1
 
             suppliers.add(Supplier(
                 id = UUID.randomUUID().toString(),
@@ -100,13 +102,16 @@ fun parseCsvToSuppliers(context: Context, uri: Uri): Pair<List<Supplier>, List<S
                 qualityScore = get("quality_score").toDoubleOrNull() ?: 100.0,
                 resilienceScore = get("resilience_score").toDoubleOrNull() ?: 100.0,
                 category = get("category").ifBlank { null },
-                isBackup = get("is_backup").lowercase() in listOf("true", "1", "yes")
+                isBackup = get("is_backup").lowercase() in listOf("true", "1", "yes"),
+                dependsOn = get("depends_on").ifBlank { null }
             ))
         }
         stream.close()
     } catch (e: Exception) {
         errors.add("Parse error: ${e.message}")
     }
+    
+    autoLinkHierarchy(suppliers)
     return suppliers to errors
 }
 
@@ -120,58 +125,87 @@ fun parseExcelToSuppliers(context: Context, uri: Uri): Pair<List<Supplier>, List
             errors.add("Cannot open file")
             return suppliers to errors
         }
-        val workbook = XSSFWorkbook(stream)
+
+        // WorkbookFactory handles both .xls and .xlsx automatically
+        val workbook = WorkbookFactory.create(stream)
+        // Use DataFormatter to read ALL cells as formatted strings (handles numbers, dates etc.)
+        val formatter = DataFormatter()
         val sheet = workbook.getSheetAt(0)
+
         val headerRow = sheet.getRow(0) ?: run {
-            errors.add("Sheet is empty")
+            errors.add("Sheet is empty — no header row found")
             workbook.close()
             return suppliers to errors
         }
 
-        val headers = (0 until headerRow.lastCellNum).map {
-            headerRow.getCell(it)?.toString()?.trim()?.lowercase()?.replace(" ", "_") ?: ""
+        // Read header names using DataFormatter for robust string extraction
+        val headers = (0 until headerRow.lastCellNum).map { colIdx ->
+            val cell = headerRow.getCell(colIdx)
+            formatter.formatCellValue(cell)
+                .trim()
+                .lowercase()
+                .replace(" ", "_")
+                // Remove BOM and non-printable characters
+                .filter { it.isLetterOrDigit() || it == '_' }
         }
 
         val required = listOf("name", "lat", "lng", "tier_level")
         val missing = required.filter { it !in headers }
         if (missing.isNotEmpty()) {
-            errors.add("Missing required columns: ${missing.joinToString(", ")}")
+            errors.add("Missing required columns: ${missing.joinToString(", ")}. Found: ${headers.filter { it.isNotBlank() }.joinToString(", ")}")
             workbook.close()
             return suppliers to errors
         }
 
+        // Safe cell reader using DataFormatter
         fun getCell(row: org.apache.poi.ss.usermodel.Row, key: String): String {
             val idx = headers.indexOf(key)
-            return if (idx >= 0) row.getCell(idx)?.toString()?.trim() ?: "" else ""
+            if (idx < 0) return ""
+            val cell = row.getCell(idx) ?: return ""
+            return formatter.formatCellValue(cell).trim()
         }
 
         for (rowIdx in 1..sheet.lastRowNum) {
             val row = sheet.getRow(rowIdx) ?: continue
+            // Skip completely empty rows
+            if (row.cellIterator().asSequence().all { formatter.formatCellValue(it).isBlank() }) continue
+
             val name = getCell(row, "name")
             if (name.isBlank()) { errors.add("Row ${rowIdx + 1}: Missing name"); continue }
-            
-            val lat = getCell(row, "lat").toDoubleOrNull()
-            if (lat == null) { errors.add("Row ${rowIdx + 1}: Invalid lat"); continue }
-            
-            val lng = getCell(row, "lng").toDoubleOrNull()
-            if (lng == null) { errors.add("Row ${rowIdx + 1}: Invalid lng"); continue }
-            
-            val tier = getCell(row, "tier_level").toIntOrNull() ?: 1
+
+            val latStr = getCell(row, "lat")
+            val lat = latStr.toDoubleOrNull()
+            if (lat == null) { errors.add("Row ${rowIdx + 1}: Invalid lat '$latStr'"); continue }
+
+            val lngStr = getCell(row, "lng")
+            val lng = lngStr.toDoubleOrNull()
+            if (lng == null) { errors.add("Row ${rowIdx + 1}: Invalid lng '$lngStr'"); continue }
+
+            // Handle "1.0" Excel format → parse as double first then int
+            val tierStr = getCell(row, "tier_level")
+            val tier = tierStr.toIntOrNull() ?: tierStr.toDoubleOrNull()?.toInt() ?: 1
+
+            val riskStr = getCell(row, "risk_score")
+            val healthStr = getCell(row, "health_score")
+            val qualityStr = getCell(row, "quality_score")
+            val resilienceStr = getCell(row, "resilience_score")
 
             suppliers.add(Supplier(
                 id = UUID.randomUUID().toString(),
                 name = name,
                 tierLevel = tier.coerceIn(1, 3),
-                lat = lat, lng = lng,
+                lat = lat,
+                lng = lng,
                 region = getCell(row, "region").ifBlank { null },
                 country = getCell(row, "country").ifBlank { null },
                 city = getCell(row, "city").ifBlank { null },
-                riskScore = getCell(row, "risk_score").toDoubleOrNull() ?: 0.0,
-                healthScore = getCell(row, "health_score").toDoubleOrNull() ?: 100.0,
-                qualityScore = getCell(row, "quality_score").toDoubleOrNull() ?: 100.0,
-                resilienceScore = getCell(row, "resilience_score").toDoubleOrNull() ?: 100.0,
+                riskScore = riskStr.toDoubleOrNull() ?: 20.0,
+                healthScore = healthStr.toDoubleOrNull() ?: 80.0,
+                qualityScore = qualityStr.toDoubleOrNull() ?: 80.0,
+                resilienceScore = resilienceStr.toDoubleOrNull() ?: 80.0,
                 category = getCell(row, "category").ifBlank { null },
-                isBackup = getCell(row, "is_backup").lowercase() in listOf("true", "1", "yes")
+                isBackup = getCell(row, "is_backup").lowercase() in listOf("true", "1", "yes"),
+                dependsOn = getCell(row, "depends_on").ifBlank { null }
             ))
         }
         workbook.close()
@@ -179,7 +213,30 @@ fun parseExcelToSuppliers(context: Context, uri: Uri): Pair<List<Supplier>, List
     } catch (e: Exception) {
         errors.add("Parse error: ${e.message}")
     }
+
+    autoLinkHierarchy(suppliers)
     return suppliers to errors
+}
+
+// ── Edge Generator (Req 33) ───────────────────────────────────────────────────
+private fun autoLinkHierarchy(suppliers: MutableList<Supplier>) {
+    val tier1 = suppliers.filter { it.tierLevel == 1 }
+    val tier2 = suppliers.filter { it.tierLevel == 2 }
+    val mainHub = tier1.firstOrNull() // Best effort if multiple
+    
+    for (i in suppliers.indices) {
+        val s = suppliers[i]
+        if (s.dependsOn.isNullOrBlank()) {
+            val target = when (s.tierLevel) {
+                3 -> tier2.firstOrNull { it.category == s.category } ?: tier2.firstOrNull() ?: tier1.firstOrNull()
+                2 -> tier1.firstOrNull { it.category == s.category } ?: tier1.firstOrNull()
+                else -> mainHub.takeIf { it != s }
+            }
+            if (target != null) {
+                suppliers[i] = s.copy(dependsOn = target.name)
+            }
+        }
+    }
 }
 
 // ── Upload Hub ────────────────────────────────────────────────────────────────
@@ -223,7 +280,7 @@ data class UploadOption(val title: String, val subtitle: String, val icon: andro
 
 // ── CSV Upload ────────────────────────────────────────────────────────────────
 @Composable
-fun CsvUploadScreen(vm: SupplierViewModel = hiltViewModel()) {
+fun CsvUploadScreen(navController: NavController, vm: SupplierViewModel = hiltViewModel()) {
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var uploadResult by remember { mutableStateOf<UploadResult?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
@@ -339,13 +396,22 @@ fun CsvUploadScreen(vm: SupplierViewModel = hiltViewModel()) {
                     isProcessing = true
                     var inserted = 0
                     val errors = mutableListOf<String>()
+                    
+                    // Clear existing data before upload (Single Source of Truth)
+                    withContext(Dispatchers.IO) { vm.deleteAllSuppliers() }
+                    
                     previewSuppliers.forEach { s ->
                         val ok = withContext(Dispatchers.IO) { vm.addSync(s) }
                         if (ok) inserted++ else errors.add("Failed to insert: ${s.name}")
                     }
-                    vm.load()
+                    vm.setSuppliersLocal(previewSuppliers)
                     uploadResult = UploadResult(inserted, previewSuppliers.size - inserted, errors, emptyList())
                     isProcessing = false
+                    withContext(Dispatchers.Main) {
+                        navController.navigate(Screen.VisualGlobe.route) {
+                            popUpTo(Screen.DataUpload.route) { inclusive = false }
+                        }
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -366,7 +432,7 @@ fun CsvUploadScreen(vm: SupplierViewModel = hiltViewModel()) {
 
         DashboardSection("CSV FORMAT REQUIREMENTS") {
             listOf("Required: name, tier_level, lat, lng",
-                "Optional: country, region, city, category",
+                "Optional: country, region, city, category, depends_on",
                 "Scores: risk_score, health_score, quality_score, resilience_score",
                 "Boolean: is_backup (true/false)"
             ).forEach { req ->
@@ -381,7 +447,7 @@ fun CsvUploadScreen(vm: SupplierViewModel = hiltViewModel()) {
 
 // ── Excel Upload ──────────────────────────────────────────────────────────────
 @Composable
-fun ExcelUploadScreen(vm: SupplierViewModel = hiltViewModel()) {
+fun ExcelUploadScreen(navController: NavController, vm: SupplierViewModel = hiltViewModel()) {
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var uploadResult by remember { mutableStateOf<UploadResult?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
@@ -487,13 +553,22 @@ fun ExcelUploadScreen(vm: SupplierViewModel = hiltViewModel()) {
                     isProcessing = true
                     var inserted = 0
                     val errors = mutableListOf<String>()
+                    
+                    // Clear existing data before upload (Single Source of Truth)
+                    withContext(Dispatchers.IO) { vm.deleteAllSuppliers() }
+
                     previewSuppliers.forEach { s ->
                         val ok = withContext(Dispatchers.IO) { vm.addSync(s) }
                         if (ok) inserted++ else errors.add("Failed: ${s.name}")
                     }
-                    vm.load()
+                    vm.setSuppliersLocal(previewSuppliers)
                     uploadResult = UploadResult(inserted, previewSuppliers.size - inserted, errors, emptyList())
                     isProcessing = false
+                    withContext(Dispatchers.Main) {
+                        navController.navigate(Screen.VisualGlobe.route) {
+                            popUpTo(Screen.DataUpload.route) { inclusive = false }
+                        }
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -596,7 +671,7 @@ fun DataTemplatesScreen() {
 
         DashboardSection("REQUIRED CSV HEADER FORMAT") {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
-                Text("name,tier_level,lat,lng,country,region,city,category,risk_score,health_score,quality_score,resilience_score,is_backup",
+                Text("name,tier_level,lat,lng,country,region,city,category,risk_score,health_score,quality_score,resilience_score,is_backup,depends_on",
                     color = Color(0xFF10B981), fontSize = 9.sp, modifier = Modifier.padding(12.dp),
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
             }

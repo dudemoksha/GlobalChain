@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, FileSpreadsheet, Download, CheckCircle2,
   AlertCircle, ArrowRight, X, Eye, Globe, Activity,
   Table, Loader2, Database, FileText, Zap, BarChart3,
-  RefreshCcw, Layers, Search, ShieldCheck, TrendingUp
+  RefreshCcw, ShieldCheck, AlertTriangle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useStore, Supplier } from '@/store/useStore';
@@ -30,10 +31,12 @@ export default function UploadDatasetPage() {
   const [previewData, setPreviewData] = useState<PreviewRow[]>([]);
   const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [importedCount, setImportedCount] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
   const [dbStatus, setDbStatus] = useState<'idle'|'writing'|'done'|'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
   
   const { 
     setSuppliers, setEdges, suppliers, db, 
@@ -62,59 +65,69 @@ export default function UploadDatasetPage() {
         setStatus('validating');
         setProgress(20);
 
-        const parsedSuppliers: Supplier[] = raw.map((row: any, idx) => {
-          const rawTier = parseInt(row.tier || row.Tier || '1');
-          const tier = (isNaN(rawTier) || rawTier < 1 || rawTier > 3) ? 1 : rawTier;
-          const lat = parseFloat(row.lat || row.Lat || row.latitude || '0');
-          const lng = parseFloat(row.lng || row.Lng || row.longitude || '0');
-          
-          return {
-            id: (row.id || row.Id || crypto.randomUUID()).toString(),
-            name: (row.name || row.Name || `Supplier ${idx + 1}`).toString(),
-            tier: tier as 1 | 2 | 3,
-            lat: isNaN(lat) ? 0 : lat,
-            lng: isNaN(lng) ? 0 : lng,
-            health: parseInt(row.health || row.Health || '100') || 100,
-            risk: parseInt(row.risk || row.Risk || '0') || 0,
-            visibility: (row.visibility === 'Private' ? 'Private' : 'Public') as 'Public' | 'Private',
-            category: (row.category || row.Category || 'General').toString(),
-            isBackup: row.isBackup === 'true' || row.isBackup === true,
-            city: (row.city || row.City || '').toString()
-          };
+        const parsedSuppliers: Supplier[] = [];
+        const rowErrors: string[] = [];
+
+        raw.forEach((row: any, idx) => {
+          const rowNum = idx + 2;
+          const name = (row.name || row.Name || '').toString().trim();
+          const lat = parseFloat(row.lat || row.Lat || row.latitude || row.Latitude || '0');
+          const lng = parseFloat(row.lng || row.Lng || row.longitude || row.Longitude || '0');
+          const rawTier = parseInt(row.tier || row.Tier || row.tier_level || '1');
+
+          if (!name) rowErrors.push(`Row ${rowNum}: Missing required field 'name'.`);
+          if (isNaN(lat) || lat === 0) rowErrors.push(`Row ${rowNum} (${name || '?'}): Invalid or missing 'lat' coordinate.`);
+          if (isNaN(lng) || lng === 0) rowErrors.push(`Row ${rowNum} (${name || '?'}): Invalid or missing 'lng' coordinate.`);
+          if (isNaN(rawTier) || rawTier < 1 || rawTier > 3) rowErrors.push(`Row ${rowNum} (${name || '?'}): 'tier' must be 1, 2, or 3.`);
+
+          if (name && !isNaN(lat) && lat !== 0 && !isNaN(lng) && lng !== 0) {
+            const tier = (isNaN(rawTier) || rawTier < 1 || rawTier > 3) ? 1 : rawTier as 1|2|3;
+            parsedSuppliers.push({
+              id: (row.id || row.Id || crypto.randomUUID()).toString(),
+              name,
+              tier,
+              lat,
+              lng,
+              health: parseInt(row.health || row.Health || '100') || 100,
+              risk: parseInt(row.risk || row.Risk || '0') || 0,
+              visibility: (row.visibility === 'Private' ? 'Private' : 'Public') as 'Public' | 'Private',
+              category: (row.category || row.Category || 'General').toString(),
+              isBackup: row.isBackup === 'true' || row.isBackup === true,
+              city: (row.city || row.City || row.source_location || '').toString()
+            });
+          }
         });
 
-        // --- CENTRAL HUB ARCHITECTURE ---
-        // All supply paths eventually converge on the "Main Command Center"
+        if (rowErrors.length > 0) setValidationErrors(rowErrors);
+        if (parsedSuppliers.length === 0) throw new Error(`Validation failed: No valid supplier rows found. Check that 'name', 'lat', 'lng', and 'tier' are present.`);
+
+
+        // --- SUPPLY CHAIN EDGE ARCHITECTURE ---
         const newEdges: any[] = [];
-        
         const tier1Nodes = parsedSuppliers.filter(s => s.tier === 1);
         const tier2Nodes = parsedSuppliers.filter(s => s.tier === 2);
         const tier3Nodes = parsedSuppliers.filter(s => s.tier === 3);
 
-        // 1. Tier 1 -> ALL converge to Main Headquarters
+        // Tier 1 → Main HQ
         tier1Nodes.forEach(s => {
           newEdges.push({ source: s.id, target: 'Main', value: 1.0 });
         });
 
-        // 2. Tier 2 -> Link to the closest/next Tier 1 partner
+        // Tier 2 → nearest Tier 1
         tier2Nodes.forEach((s, idx) => {
           if (tier1Nodes.length > 0) {
-            const target = tier1Nodes[idx % tier1Nodes.length];
-            newEdges.push({ source: s.id, target: target.id, value: 0.8 });
+            newEdges.push({ source: s.id, target: tier1Nodes[idx % tier1Nodes.length].id, value: 0.8 });
           } else {
-            // Fallback: connect directly to main if no T1 exists
             newEdges.push({ source: s.id, target: 'Main', value: 0.8 });
           }
         });
 
-        // 3. Tier 3 -> Link to Tier 2 partners
+        // Tier 3 → nearest Tier 2 (or Tier 1 fallback)
         tier3Nodes.forEach((s, idx) => {
           if (tier2Nodes.length > 0) {
-            const target = tier2Nodes[idx % tier2Nodes.length];
-            newEdges.push({ source: s.id, target: target.id, value: 0.6 });
+            newEdges.push({ source: s.id, target: tier2Nodes[idx % tier2Nodes.length].id, value: 0.6 });
           } else if (tier1Nodes.length > 0) {
-            const target = tier1Nodes[idx % tier1Nodes.length];
-            newEdges.push({ source: s.id, target: target.id, value: 0.6 });
+            newEdges.push({ source: s.id, target: tier1Nodes[idx % tier1Nodes.length].id, value: 0.6 });
           } else {
             newEdges.push({ source: s.id, target: 'Main', value: 0.6 });
           }
@@ -187,6 +200,8 @@ export default function UploadDatasetPage() {
         setEdges(savedEdges);
         setImportedCount(savedSuppliers.length);
         setStatus('success');
+        // Auto-redirect to Globe after a brief success moment
+        setTimeout(() => router.push('/visualization/globe'), 1800);
 
       } catch (err: any) {
         setError(err.message || 'Failed to parse file.');

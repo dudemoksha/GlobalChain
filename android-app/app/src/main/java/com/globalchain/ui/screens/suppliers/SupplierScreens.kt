@@ -471,3 +471,33 @@ fun DependencyMappingScreen(vm: SupplierViewModel = hiltViewModel()) {
 }
 
 private fun Double.format(decimals: Int) = "%.${decimals}f".format(this)
+
+@Composable
+fun SupplierComparisonScreen(vm: SupplierViewModel = hiltViewModel()) {
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF020617)).padding(16.dp)) {
+        Text("SUPPLIER COMPARISON", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text("Compare key metrics across suppliers", color = Color(0xFF64748B), fontSize = 11.sp)
+        Spacer(modifier = Modifier.height(16.dp))
+        EmptyDataPlaceholder("Select two or more suppliers to compare their performance, health, and risk metrics.")
+    }
+}
+
+@Composable
+fun SupplierHistoryScreen(vm: SupplierViewModel = hiltViewModel()) {
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF020617)).padding(16.dp)) {
+        Text("SUPPLIER HISTORY", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text("Historical performance and audit log", color = Color(0xFF64748B), fontSize = 11.sp)
+        Spacer(modifier = Modifier.height(16.dp))
+        EmptyDataPlaceholder("No historical records available for the selected parameters.")
+    }
+}
+
+@Composable
+fun SupplierManageScreen(vm: SupplierViewModel = hiltViewModel()) {
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF020617)).padding(16.dp)) {
+        Text("MANAGE SUPPLIERS", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Text("Bulk management and category settings", color = Color(0xFF64748B), fontSize = 11.sp)
+        Spacer(modifier = Modifier.height(16.dp))
+        EmptyDataPlaceholder("Bulk management tools are available for administrators only.")
+    }
+}

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 export type Tier = 1 | 2 | 3;
 
@@ -134,7 +133,6 @@ interface GlobalState {
 }
 
 export const useStore = create<GlobalState>()(
-  persist(
     (set, get) => ({
       suppliers: [],
   edges: [],
@@ -220,7 +218,7 @@ export const useStore = create<GlobalState>()(
 
     const recommendations: Recommendation[] = [];
     simSuppliers.forEach(s => {
-      if (s.health < 80) { // Relaxed from 60 to 80 for better visibility
+      if (s.health < 80) {
         const backup = suppliers.find(b => b.category === s.category && b.isBackup && !simSuppliers.find(ss => ss.id === b.id)?.affectedBy);
         if (backup) {
           recommendations.push({
@@ -244,7 +242,6 @@ export const useStore = create<GlobalState>()(
       }
     });
 
-    // Ensure at least one recommendation for demo if any node is affected
     if (recommendations.length === 0 && simSuppliers.some(s => s.health < 100)) {
       const affected = simSuppliers.find(s => s.health < 100);
       const backup = suppliers.find(b => b.isBackup) || suppliers[0];
@@ -288,12 +285,10 @@ export const useStore = create<GlobalState>()(
     if (suppliers.length === 0) return;
 
     const newRecommendations: Recommendation[] = [];
-    // Only analyze non-backup, healthy suppliers for better options
     const mainSuppliers = suppliers.filter(s => !s.isBackup && s.health > 80);
     const backups = suppliers.filter(s => s.isBackup);
 
     mainSuppliers.forEach(s => {
-      // Find a better backup in same category
       const betterOption = backups.find(b => b.category === s.category && b.risk < s.risk - 10 && b.health >= s.health);
       if (betterOption) {
         newRecommendations.push({
@@ -316,7 +311,6 @@ export const useStore = create<GlobalState>()(
       }
     });
 
-    // Keep top 20 recent auto-recommendations
     set(state => ({ 
       autoRecommendations: [...newRecommendations, ...state.autoRecommendations].slice(0, 20) 
     }));
@@ -369,22 +363,7 @@ export const useStore = create<GlobalState>()(
   }),
   clearAuditLogs: () => set({ auditLogs: [] }),
   resetAuditLogs: () => set({ auditLogs: [] }),
-    }),
-    {
-      name: 'globalchain-storage',
-      partialize: (state) => ({
-        suppliers: state.suppliers,
-        edges: state.edges,
-        activeSimulation: state.activeSimulation,
-        simulationHistory: state.simulationHistory,
-        autoRecommendations: state.autoRecommendations,
-        userRole: state.userRole,
-        organizations: state.organizations,
-        db: state.db,
-        auditLogs: state.auditLogs,
-      }),
-    }
-  )
+    })
 );
 
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {

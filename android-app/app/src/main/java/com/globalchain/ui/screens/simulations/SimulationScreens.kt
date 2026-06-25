@@ -26,6 +26,7 @@ import com.globalchain.ui.screens.dashboard.EmptyDataPlaceholder
 import com.globalchain.ui.screens.dashboard.KpiCard
 import com.globalchain.ui.viewmodel.SimulationViewModel
 import com.globalchain.ui.viewmodel.SupplierViewModel
+import com.globalchain.ui.screens.visualization.GlobeWebView
 
 private val SCENARIOS = listOf(
     Triple("Disaster", "Natural Disaster", Color(0xFF3B82F6)),
@@ -35,7 +36,9 @@ private val SCENARIOS = listOf(
     Triple("War", "Geopolitical Conflict", Color(0xFFA855F7)),
     Triple("Port", "Port Shutdown", Color(0xFF14B8A6)),
     Triple("Traffic", "Traffic Disruption", Color(0xFFFF6B35)),
-    Triple("Industrial", "Industrial Accident", Color(0xFFE97316))
+    Triple("Industrial", "Industrial Accident", Color(0xFFE97316)),
+    Triple("Geopolitical", "Geopolitical Conflict", Color(0xFF8B5CF6)),
+    Triple("Logistics", "Logistics Breakdown", Color(0xFF06B6D4))
 )
 
 @Composable
@@ -63,6 +66,23 @@ fun SimulationCenterScreen(
                     Icon(Icons.Default.Refresh, null, tint = Color(0xFFEF4444))
                 }
             }
+        }
+
+        // ── Temporary Simulation Globe (Req 34/35) ──
+        Box(modifier = Modifier.fillMaxWidth().height(300.dp).background(Color.Black, RoundedCornerShape(12.dp))) {
+            if (result != null) {
+                GlobeWebView(suppliers = result!!.simulatedSuppliers)
+            } else {
+                GlobeWebView(suppliers = suppliers)
+            }
+            // Overlay gradient
+            Box(modifier = Modifier.fillMaxSize().background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, Color(0xFF020617)),
+                    startY = 400f
+                )
+            ))
+            Text(if (result != null) "SIMULATION ACTIVE" else "ORIGINAL NETWORK", color = if (result != null) Color(0xFFEF4444) else Color(0xFF10B981), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Color(0xFF0F172A).copy(0.8f), RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 4.dp))
         }
 
         // Scenario Selector
@@ -121,6 +141,39 @@ fun SimulationCenterScreen(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
+
+            // Dropdown / City Selection (Req 34 Step 4)
+            var expanded by remember { mutableStateOf(false) }
+            val uniqueCountries = suppliers.mapNotNull { it.country }.distinct().sorted()
+            if (uniqueCountries.isNotEmpty()) {
+                Text("AFFECTED REGION", color = Color(0xFF64748B), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+                    OutlinedTextField(
+                        value = config.locationName,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        )
+                    )
+                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        uniqueCountries.forEach { c ->
+                            DropdownMenuItem(text = { Text(c, color = Color.Black) }, onClick = {
+                                val s = suppliers.firstOrNull { it.country == c }
+                                if (s != null) {
+                                    simVm.updateConfig(config.copy(locationName = c, lat = s.lat, lng = s.lng))
+                                }
+                                expanded = false
+                            })
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             // Radius Slider
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

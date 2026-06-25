@@ -49,19 +49,45 @@ private val NO_BOTTOM_BAR_ROUTES = setOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainApp() {
-    // SAFE LAUNCH MODE
-    // Bypasses NavGraph, Session Checking, Realtime, and Maps entirely.
-    val authViewModel: AuthViewModel = hiltViewModel()
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
     
-    Scaffold(containerColor = Color(0xFF020617)) { innerPadding ->
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val sessionState by authViewModel.sessionState.collectAsState()
+
+    if (sessionState is SessionState.Checking) {
+        SplashScreen()
+        return
+    }
+
+    val startDest = if (sessionState is SessionState.LoggedIn) Screen.Home.route else Screen.Login.route
+
+    val noTopBarRoutes = NO_BOTTOM_BAR_ROUTES + setOf(Screen.Home.route)
+
+    Scaffold(
+        containerColor = Color(0xFF020617),
+        topBar = {
+            if (currentRoute != null && !noTopBarRoutes.contains(currentRoute)) {
+                TopAppBar(
+                    title = { },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF020617))
+                )
+            }
+        },
+        bottomBar = {
+            if (currentRoute != null && !NO_BOTTOM_BAR_ROUTES.contains(currentRoute)) {
+                BottomNavBar(navController = navController, currentRoute = currentRoute)
+            }
+        }
+    ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding).fillMaxSize().background(Color(0xFF020617))) {
-            com.globalchain.ui.screens.auth.LoginScreen(
-                onNavigateToHome = {},
-                onNavigateToAdminHome = {},
-                onNavigateToSignup = {},
-                onNavigateToForgotPassword = {},
-                viewModel = authViewModel
-            )
+            NavGraph(navController = navController, startDestination = startDest)
         }
     }
 }
@@ -86,7 +112,6 @@ fun BottomNavBar(navController: NavHostController, currentRoute: String?) {
         val items = listOf(
             NavItem("Home", Screen.Home, Icons.Default.Home),
             NavItem("Suppliers", Screen.Suppliers, Icons.Default.Group),
-            NavItem("Map", Screen.GeoMap, Icons.Default.Map),
             NavItem("Analytics", Screen.Analytics, Icons.Default.BarChart),
             NavItem("Alerts", Screen.Alerts, Icons.Default.Notifications),
         )

@@ -62,48 +62,60 @@ export default function Globe3D({
   // Use simulation data if active, otherwise operational data
   const displaySuppliers = useMemo(() => {
     const base = activeSimulation?.simulatedSuppliers || suppliers;
-    return base.map((s: Supplier) => {
-      if (userRole === 'MainCompany' && s.tier > 1 && s.visibility === 'Private') {
-        return { ...s, name: `Tier ${s.tier} Node`, category: 'Classified' };
-      }
-      return s;
-    });
+    return base
+      .map((s: Supplier) => {
+        if (userRole === 'MainCompany' && s.tier > 1 && s.visibility === 'Private') {
+          return { ...s, name: `Tier ${s.tier} Node`, category: 'Classified' };
+        }
+        return s;
+      })
+      // Filter out suppliers with invalid coordinates
+      .filter((s: Supplier) => {
+        const hasValidLat = typeof s.lat === 'number' && !isNaN(s.lat) && !(s.lat === 0 && s.lng === 0);
+        const hasValidLng = typeof s.lng === 'number' && !isNaN(s.lng);
+        return hasValidLat && hasValidLng;
+      });
   }, [suppliers, userRole, activeSimulation]);
 
   const arcData = useMemo(() => {
     if (!showArcs || !showLayers) return [];
+    // Main company HQ location (San Francisco)
+    const mainHub = { lat: 37.7749, lng: -122.4194, health: 100 };
+
     return edges.map((edge: Edge) => {
       const source = displaySuppliers.find((s: Supplier) => s.id === edge.source);
-      const target = edge.target === 'Main' ? { lat: 37.7749, lng: -122.4194 } : displaySuppliers.find((s: Supplier) => s.id === edge.target);
+      const target = edge.target === 'Main'
+        ? mainHub
+        : displaySuppliers.find((s: Supplier) => s.id === edge.target);
       if (!source || !target) return null;
-      
-      // Cinematic glowing continuous routes
-      let color = 'rgba(59, 130, 246, 0.9)'; // Premium glowing blue
-      let dashAnimateTime = 2500;
-      let stroke = 1.8;
 
       const sourceHealth = source.health;
       const targetHealth = (target as any).health ?? 100;
-      const sourceRisk = source.risk;
+      const sourceRisk = source.risk ?? 0;
+
+      // White = healthy route, Orange = at risk, Red = critical
+      let color = 'rgba(255, 255, 255, 1.0)'; // Bright white healthy route
+      let dashAnimateTime = 2000;
+      let stroke = 2.5;
 
       if (sourceHealth < 40 || targetHealth < 40 || sourceRisk > 70) {
-        color = 'rgba(239, 68, 68, 1.0)'; // Intense Solid Red
-        dashAnimateTime = 800;
-        stroke = 2.5;
+        color = 'rgba(239, 68, 68, 1.0)'; // Solid Red — critical disruption
+        dashAnimateTime = 700;
+        stroke = 3.0;
       } else if (sourceHealth < 80 || targetHealth < 80 || sourceRisk > 30) {
-        color = 'rgba(245, 158, 11, 1.0)'; // Bold Glowing Orange
-        dashAnimateTime = 1500;
-        stroke = 2.2;
+        color = 'rgba(245, 158, 11, 1.0)'; // Solid Orange — at risk
+        dashAnimateTime = 1400;
+        stroke = 2.8;
       }
 
       return { 
         startLat: source.lat, 
         startLng: source.lng, 
-        endLat: target.lat, 
-        endLng: target.lng, 
+        endLat: (target as any).lat, 
+        endLng: (target as any).lng, 
         color,
-        dashLength: 0.95, // Near continuous smooth flow
-        dashGap: 0.05,
+        dashLength: 0.9,
+        dashGap: 0.1,
         dashAnimateTime,
         stroke
       };
@@ -219,7 +231,7 @@ export default function Globe3D({
         arcDashGap="dashGap"
         arcDashAnimateTime="dashAnimateTime"
         arcStroke="stroke"
-        arcAltitudeAutoScale={0.7}
+        arcAltitudeAutoScale={0.25}
         
         // Custom Nodes - Rendered as Luminous Spheres (No more cylinders)
         customLayerData={customNodeData}

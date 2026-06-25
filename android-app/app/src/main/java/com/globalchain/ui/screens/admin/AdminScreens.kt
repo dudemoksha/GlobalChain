@@ -63,11 +63,13 @@ fun AdminDashboardScreen(navController: NavController, vm: AdminViewModel = hilt
         }
 
         DashboardSection("RECENT AUDIT EVENTS") {
-            val displayLogs = if (logs.isEmpty()) mockAuditLogs() else logs
-            displayLogs.take(5).forEach { log ->
-                Row(modifier = Modifier.padding(vertical = 5.dp)) {
-                    Text(log.action, color = Color(0xFF3B82F6), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text(log.resource, color = Color(0xFF64748B), fontSize = 10.sp)
+            if (logs.isEmpty()) EmptyDataPlaceholder("No audit logs found")
+            else {
+                logs.take(5).forEach { log ->
+                    Row(modifier = Modifier.padding(vertical = 5.dp)) {
+                        Text(log.action, color = Color(0xFF3B82F6), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text(log.resource, color = Color(0xFF64748B), fontSize = 10.sp)
+                    }
                 }
             }
         }
@@ -78,16 +80,17 @@ fun AdminDashboardScreen(navController: NavController, vm: AdminViewModel = hilt
 @Composable
 fun AdminOrgsScreen(vm: AdminViewModel = hiltViewModel()) {
     val orgs by vm.orgs.collectAsState()
-    val displayOrgs = if (orgs.isEmpty()) mockOrgs() else orgs
-
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFF020617))) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("ORGANIZATION APPROVALS", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text("${displayOrgs.count { it.status == "Pending" }} pending approvals", color = Color(0xFF64748B), fontSize = 11.sp)
+            Text("${orgs.count { it.status == "Pending" }} pending approvals", color = Color(0xFF64748B), fontSize = 11.sp)
         }
-        LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(displayOrgs) { org ->
-                OrgApprovalCard(org, onApprove = { vm.approve(org.id) }, onReject = { vm.reject(org.id) })
+        if (orgs.isEmpty()) EmptyDataPlaceholder("No organizations found")
+        else {
+            LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(orgs) { org ->
+                    OrgApprovalCard(org, onApprove = { vm.approve(org.id) }, onReject = { vm.reject(org.id) })
+                }
             }
         }
     }
@@ -137,25 +140,7 @@ fun AdminUsersScreen() {
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFF020617)).padding(16.dp)) {
         Text("USER MANAGEMENT", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(mockUsers()) { user ->
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)), shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()) {
-                    Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(36.dp).background(Color(0xFF3B82F6).copy(0.15f), RoundedCornerShape(18.dp)),
-                            contentAlignment = Alignment.Center) {
-                            Text(user.first.first().toString(), color = Color(0xFF3B82F6), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(user.first, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Text(user.second, color = Color(0xFF64748B), fontSize = 10.sp)
-                        }
-                        Text(user.third, color = Color(0xFF3B82F6), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
+        EmptyDataPlaceholder("No users found")
     }
 }
 
@@ -163,25 +148,26 @@ fun AdminUsersScreen() {
 @Composable
 fun AdminAuditScreen(vm: AdminViewModel = hiltViewModel()) {
     val logs by vm.auditLogs.collectAsState()
-    val displayLogs = if (logs.isEmpty()) mockAuditLogs() else logs
-
     Column(modifier = Modifier.fillMaxSize().background(Color(0xFF020617))) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("AUDIT LOGS", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Text("${displayLogs.size} events recorded", color = Color(0xFF64748B), fontSize = 11.sp)
+            Text("${logs.size} events recorded", color = Color(0xFF64748B), fontSize = 11.sp)
         }
-        LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(displayLogs) { log ->
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)), shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.History, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(log.action, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text("Resource: ${log.resource}", color = Color(0xFF64748B), fontSize = 9.sp)
+        if (logs.isEmpty()) EmptyDataPlaceholder("No audit logs found")
+        else {
+            LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(logs) { log ->
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)), shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.History, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(log.action, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Resource: ${log.resource}", color = Color(0xFF64748B), fontSize = 9.sp)
+                            }
+                            Text(log.timestamp.take(10), color = Color(0xFF475569), fontSize = 9.sp)
                         }
-                        Text(log.timestamp.take(10), color = Color(0xFF475569), fontSize = 9.sp)
                     }
                 }
             }
@@ -323,25 +309,3 @@ fun AdminSystemScreen() {
     }
 }
 
-// ── Mock data helpers ──────────────────────────────────────────────────────────
-private fun mockOrgs() = listOf(
-    Organization("1", "TechCorp Industries", "admin@techcorp.com", "Pending", "2025-06-01"),
-    Organization("2", "Sino Manufacturing", "ops@sino.com", "Pending", "2025-05-28"),
-    Organization("3", "Euro Logistics GmbH", "ceo@euro-log.de", "Approved", "2025-05-20"),
-    Organization("4", "Pacific Traders", "contact@pacific.co", "Rejected", "2025-05-15"),
-)
-
-private fun mockAuditLogs() = listOf(
-    AuditLog("1", "USER_LOGIN", "usr_001", "auth/session", "2025-06-01T14:23:00Z"),
-    AuditLog("2", "SUPPLIER_ADDED", "usr_001", "suppliers", "2025-06-01T13:45:00Z"),
-    AuditLog("3", "ORG_APPROVED", "admin_001", "organizations/2", "2025-06-01T12:00:00Z"),
-    AuditLog("4", "SIMULATION_RUN", "usr_002", "simulations", "2025-05-31T16:20:00Z"),
-    AuditLog("5", "DATA_UPLOADED", "usr_001", "data/csv", "2025-05-31T10:00:00Z"),
-)
-
-private fun mockUsers() = listOf(
-    Triple("Moksha Sai", "admin@globalchain.io", "Super Admin"),
-    Triple("John Chen", "j.chen@example.com", "Admin"),
-    Triple("Priya Sharma", "p.sharma@example.com", "Analyst"),
-    Triple("Marcus Weber", "m.weber@example.com", "Viewer"),
-)
